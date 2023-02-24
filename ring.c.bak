@@ -1,0 +1,151 @@
+/*
+ * ring - a ping implementation
+ * 
+ * USAGE
+ *   ring <destination-ip-address>
+ *
+ * DESCRIPTION
+ *   ring sends an ICMP ECHO_REQUEST to a specified destination address and
+ *   waits (a specific amount of time before timing out) for an ICMP ECHO_REPLY.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <net/ethernet.h>
+#include <netdb.h>
+#include <netinet/ip_icmp.h>
+
+#include <libexplain/socket.h>
+#include <libexplain/setsockopt.h>
+
+struct ping_pkt {
+    struct icmphdr hdr;
+    char msg[12];
+};
+
+int ping_loop = 1;
+
+void interrupt_handler(int _) {
+  printf("you interrupted\n");
+  ping_loop = 0;
+}
+
+// Calculating the Check Sum
+unsigned short checksum(void *b, int len)
+{    unsigned short *buf = b;
+    unsigned int sum=0;
+    unsigned short result;
+ 
+    for ( sum = 0; len > 1; len -= 2 )
+        sum += *buf++;
+    if ( len == 1 )
+        sum += *(unsigned char*)buf;
+    sum = (sum >> 16) + (sum & 0xFFFF);
+    sum += (sum >> 16);
+    result = ~sum;
+    return result;
+}
+ 
+int main() {
+  struct timeval tv_out;
+  tv_out.tv_sec = 1;
+  tv_out.tv_usec = 0;
+
+  int ttl_val = 64;
+
+  int sockfd;
+
+  sockfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_ICMP);
+  if (sockfd < 0) {
+    fprintf(stderr, "%s\n", explain_socket(AF_INET, SOCK_RAW, IPPROTO_ICMP));
+    exit(EXIT_FAILURE);
+  }
+
+  signal(SIGINT, interrupt_handler);
+
+  /*
+  if (setsockopt(sockfd, SOL_SOCKET, IP_TTL, &ttl_val, sizeof(ttl_val))) {
+    fprintf(stderr, "%s\n", explain_setsockopt(sockfd, SOL_IP, IP_TTL, &ttl_val, sizeof(ttl_val)));
+    exit(EXIT_FAILURE);
+  }
+  */
+
+  if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv_out, sizeof tv_out)) {
+    fprintf(stderr, "%s\n", explain_setsockopt(sockfd, SOL_IP, IP_TTL, &ttl_val, sizeof(ttl_val)));
+    exit(EXIT_FAILURE);
+  }
+
+  struct ping_pkt buffer;
+
+  struct sockaddr_in saddr;
+  saddr.sin_family = AF_INET;
+  //saddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+  inet_pton(AF_INET, "127.0.0.1", &(saddr.sin_addr));
+
+  socklen_t slen = sizeof(saddr);
+  char saddr_buffer[255];
+
+  while (ping_loop) {
+
+/*
+    bzero(&buffer, sizeof(buffer));
+    buffer.hdr.type = ICMP_ECHO;
+    buffer.hdr.un.echo.id = getpid();
+
+    int i;
+    for (i = 0; i < sizeof(buffer.msg)-1; i++) {
+      buffer.msg[i] = i+'0';
+    }
+
+    buffer.msg[i] = 0;
+    char *lol = "LOL";
+    strncpy(buffer.msg, lol, 3);
+    buffer.msg[0] = 'b';
+
+    buffer.hdr.un.echo.sequence = 1;
+    buffer.hdr.checksum = checksum(&buffer, sizeof(buffer));
+
+
+    if (sendto(sockfd, &buffer, sizeof(buffer), 0, (struct sockaddr *) &saddr, sizeof(saddr)) < 0) {
+      //fprintf(stderr, "%s\n", explain_socket(sockfd, &buffer, sizeof(buffer), 0, (struct sockaddr *) &saddr, &slen));
+      fprintf(stderr, "error");
+      exit(EXIT_FAILURE);
+    }
+
+    printf("ICMP ECHO SENT: To %s\n", "127.0.0.1");
+
+*/
+    bzero(&buffer, sizeof(buffer));
+
+    recvfrom(sockfd, &buffer, sizeof(buffer), 0, (struct sockaddr *) &saddr, &slen);
+
+    inet_ntop(AF_INET, &(saddr.sin_addr), saddr_buffer, sizeof(saddr_buffer));
+    printf("ICMP REPLY RECEIVED: %d, ", buffer.msg[2]);
+    //printf("ICMP REPLY RECEIVED: %d, ", buffer.hdr.checksum);
+    printf("From %s\n", saddr_buffer);
+
+    /*
+    if () {
+
+
+      printf("ICMP REPLY RECEIVED: %s, ", buffer);
+      printf("From %s\n", saddr_buffer);
+
+      usleep(100000);
+    } else {
+    }
+    */
+    usleep(1000000);
+  }
+
+  printf("Hello, htn\n");
+  return 0;
+}

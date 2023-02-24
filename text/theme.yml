@@ -1,0 +1,53 @@
+extends: default
+
+title-page: false
+
+base:
+  line-height: 1.5
+  font:
+    family: Times-Roman
+    size: 12
+
+cover:
+  front:
+    image: image:cover.pdf[]
+
+page:
+  margin: [1in, 0.5in, 1in, 0.7in]
+
+footer:
+  font-size: 10
+  height: 0.6in
+  columns: =100%
+  recto: &shared_footer
+    center:
+      content: '{page-number}'
+  verso: *shared_footer
+
+heading:
+  chapter-break-before: auto
+  min-height-after: 1.75in
+  h2:
+    font-size: 14
+    text-align: center
+    margin-bottom: 24
+    margin-top: 22
+  h3:
+    font-size: 13
+    margin-bottom: 14
+    margin-top: 8
+  h4:
+    font-size: 12
+
+code:
+  font-family: Courier
+
+codespan:
+  font-family: Courier
+
+quote:
+  font-size: 12
+
+image:
+  align: center
+  caption-align: center
